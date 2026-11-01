@@ -75,10 +75,59 @@ export default function ReportIssuePage() {
   const [rejected, setRejected] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function onFile(f: File | null) {
+  // Fast client-side image compression to optimize Gemini Vision latency
+  function compressImage(f: File): Promise<File> {
+    return new Promise((resolve) => {
+      if (f.size < 300 * 1024) return resolve(f);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          const maxDim = 1024;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(f);
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (blob && blob.size < f.size) {
+                const compressed = new File([blob], f.name.replace(/\.[^.]+$/, '.jpg'), {
+                  type: 'image/jpeg',
+                });
+                resolve(compressed);
+              } else {
+                resolve(f);
+              }
+            },
+            'image/jpeg',
+            0.8
+          );
+        };
+        img.onerror = () => resolve(f);
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve(f);
+      reader.readAsDataURL(f);
+    });
+  }
+
+  async function onFile(f: File | null) {
     if (!f) return;
-    setFile(f);
     setPreview(URL.createObjectURL(f));
+    const optimized = await compressImage(f);
+    setFile(optimized);
   }
 
   function appeal() {

@@ -58,20 +58,23 @@ export async function POST(req: Request) {
   const base64 = buffer.toString('base64');
   const mimeType = image.type || 'image/jpeg';
 
-  // Save photo locally to public/uploads/complaints/
+  // Save photo locally in development, use data URL in serverless (e.g. Vercel)
   let imageUrl: string | undefined;
-  try {
-    const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-    const filename = `complaint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'complaints');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  if (!process.env.VERCEL) {
+    try {
+      const ext = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+      const filename = `complaint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'complaints');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const filePath = path.join(uploadDir, filename);
+      fs.writeFileSync(filePath, buffer);
+      imageUrl = `/uploads/complaints/${filename}`;
+    } catch {
+      imageUrl = `data:${mimeType};base64,${base64}`;
     }
-    const filePath = path.join(uploadDir, filename);
-    fs.writeFileSync(filePath, buffer);
-    imageUrl = `/uploads/complaints/${filename}`;
-  } catch (err) {
-    console.error('Local photo save failed, falling back to data URL:', err);
+  } else {
     imageUrl = `data:${mimeType};base64,${base64}`;
   }
 

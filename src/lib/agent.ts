@@ -373,7 +373,7 @@ async function judgeReview(
         responseSchema: JUDGE_SCHEMA,
         temperature: 0.2,
       },
-    });
+    }, 0, 3500);
     const p = parseJson<Partial<JudgeVerdict>>(res.text ?? '', {});
     const merged: JudgeVerdict = {
       approved: p.approved ?? deterministic.approved,
@@ -543,189 +543,96 @@ export async function* runTriageAgent(
   let finalTitle = vision.title;
   let finalized = false;
 
-  const runTool = async (name: string, args: Record<string, unknown>) => {
-    const cat = pickCategory(args.category, vision.category);
-    switch (name) {
-      case 'find_duplicate_reports': {
-        const dup = await detectDuplicates(cat, input.geo, `${vision.title}. ${vision.description}`);
-        duplicateCount = dup.count;
-        nearestDup = dup.nearest;
-        semanticTop = dup.topSemantic;
-        return {
-          count: dup.count,
-          nearest: dup.nearest
-            ? {
-                id: dup.nearest.issue.ref ?? dup.nearest.issue.id,
-                title: dup.nearest.issue.title,
-                distanceMeters: Math.round(dup.nearest.distanceM),
-                verifications: dup.nearest.issue.verifications,
-              }
-            : null,
-          semanticMatch: dup.topSemantic
-            ? {
-                id: dup.topSemantic.issue.ref ?? dup.topSemantic.issue.id,
-                title: dup.topSemantic.issue.title,
-                similarity: Number(dup.topSemantic.sim.toFixed(2)),
-              }
-            : null,
-        };
-      }
-      case 'lookup_department': {
-        department = DEPARTMENTS[cat];
-        return {
-          name: department.name,
-          slaHours: department.slaHours,
-          contact: department.contact,
-          escalation: department.escalation,
-        };
-      }
-      case 'assess_priority': {
-        priority = computePriority({
-          severity: pickSeverity(args.severity, vision.severity),
-          duplicateCount: numArg(args.duplicateCount, duplicateCount),
-          slaHours: numArg(args.slaHours, department.slaHours),
-          hasSafetyRisk:
-            typeof args.hasSafetyRisk === 'boolean'
-              ? args.hasSafetyRisk
-              : hasRisk(vision.safetyRisk),
-        });
-        return { priorityScore: priority, scale: '0-100' };
-      }
-      case 'file_work_order': {
-        finalTitle = (args.title as string)?.trim() || finalTitle;
-        officialSummary = (args.officialSummary as string) ?? '';
-        advisory = (args.citizenAdvisory as string) ?? '';
-        recommendedAction = (args.recommendedAction as string) ?? '';
-        if (typeof args.priority === 'number') priority = args.priority;
-        finalized = true;
-        return { status: 'filed', accepted: true };
-      }
-      default:
-        return { error: 'unknown tool' };
-    }
+  // 2) Fast autonomous triage execution (tool steps streamed in real-time)
+  yield {
+    type: 'step',
+    step: step('Layers', 'Checking for duplicate reports nearby', describeCall('find_duplicate_reports', {}, vision), 'running', { tool: 'find_duplicate_reports' }),
+  };
+  const dup = await detectDuplicates(vision.category, input.geo, `${vision.title}. ${vision.description}`);
+  duplicateCount = dup.count;
+  nearestDup = dup.nearest;
+  semanticTop = dup.topSemantic;
+  yield {
+    type: 'step',
+    step: step(
+      'Layers',
+      'Duplicate check complete',
+      dup.count
+        ? `Found ${dup.count} related report(s)${dup.topSemantic ? ` (semantic match ${Math.round(dup.topSemantic.sim * 100)}%)` : ''} — linking for stronger signal.`
+        : 'No duplicates — this is a fresh report.',
+      'done',
+      { tool: 'find_duplicate_reports', data: { count: dup.count } },
+    ),
   };
 
+  department = DEPARTMENTS[vision.category];
+  yield {
+    type: 'step',
+    step: step(
+      'Building2',
+      `Routed to ${department.name}`,
+      `${department.name} · Target SLA ${slaText(department.slaHours)} · Escalation: ${department.escalation}`,
+      'done',
+      { tool: 'lookup_department', data: { name: department.name, slaHours: department.slaHours } },
+    ),
+  };
+
+  priority = computePriority({
+    severity: vision.severity,
+    duplicateCount,
+    slaHours: department.slaHours,
+    hasSafetyRisk: hasRisk(vision.safetyRisk),
+  });
+  yield {
+    type: 'step',
+    step: step(
+      'Gauge',
+      `Priority scored: ${priority}/100`,
+      `${vision.severity} severity · ${duplicateCount} duplicate(s) · ${slaText(department.slaHours)} SLA → baseline ${priority}/100`,
+      'done',
+      { tool: 'assess_priority', data: { priority } },
+    ),
+  };
+
+  yield {
+    type: 'step',
+    step: step('FileCheck2', 'Filing official municipal work order', 'Generating structured work order, official advisory, and field dispatch notes…', 'running', { tool: 'file_work_order' }),
+  };
+
+  officialSummary = vision.description;
+  recommendedAction =
+    vision.severity === 'Critical' || vision.severity === 'High'
+      ? 'Dispatch a field crew on priority and barricade the area if unsafe.'
+      : 'Schedule inspection and remediation within the SLA window.';
+  advisory = `Your report has been routed to ${department.name} with priority ${priority}/100. Target resolution within ${slaText(department.slaHours)}. Escalation contact is ${department.escalation}.`;
+
+  // Optional fast LLM advisory synthesis (3s max)
   if (hasGemini()) {
-    const contents: Content[] = [
-      {
-        role: 'user',
-        parts: [
-          {
-            text: `Triage this report.\nReporter notes: ${
-              input.notes || 'none'
-            }\nLocation: ${input.location}\nCoordinates: ${input.geo.lat.toFixed(
-              5,
-            )}, ${input.geo.lng.toFixed(5)}\nVision analysis: ${JSON.stringify({
-              category: vision.category,
-              severity: vision.severity,
-              title: vision.title,
-              description: vision.description,
-              safetyRisk: vision.safetyRisk,
-              tags: vision.tags,
-            })}${
-              input.language && input.language !== 'English'
-                ? `\nWrite the file_work_order citizenAdvisory and title in ${input.language}.`
-                : ''
-            }`,
-          },
-        ],
-      },
-    ];
-
     try {
-      for (let i = 0; i < 6 && !finalized; i++) {
-        const res = await gemini().models.generateContent({
-          model: MODEL,
-          contents,
-          config: {
-            systemInstruction: SYSTEM_INSTRUCTION,
-            tools: [{ functionDeclarations: TOOLS }],
-            toolConfig: {
-              functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
-            },
-            temperature: 0.2,
-          },
-        });
-
-        const calls = res.functionCalls ?? [];
-        if (!calls.length) break;
-
-        const modelContent = res.candidates?.[0]?.content;
-        if (modelContent) contents.push(modelContent);
-
-        const responseParts: Part[] = [];
-        for (const call of calls) {
-          const name = call.name ?? '';
-          const args = (call.args ?? {}) as Record<string, unknown>;
-          yield {
-            type: 'step',
-            step: step(
-              ICON[name] ?? 'Bot',
-              TOOL_TITLE[name] ?? name,
-              describeCall(name, args, vision),
-              'running',
-              { tool: name },
-            ),
-          };
-          const result = await runTool(name, args);
-          yield {
-            type: 'step',
-            step: step(
-              ICON[name] ?? 'Bot',
-              doneTitle(name),
-              summarizeResult(name, result),
-              'done',
-              { tool: name, data: result as Record<string, unknown> },
-            ),
-          };
-          responseParts.push({ functionResponse: { name, response: result } });
-        }
-        contents.push({ role: 'user', parts: responseParts });
-      }
-    } catch (err) {
-      console.error('agent loop failed, finishing deterministically', err);
+      const prompt = `Generate a 1-sentence friendly citizen advisory and 1-sentence municipal summary for a ${vision.severity} ${vision.category} issue at ${input.location}.${input.language && input.language !== 'English' ? ` Write in ${input.language}.` : ''}\nReturn JSON: {"advisory": "...", "officialSummary": "..."}`;
+      const res = await genContent({
+        model: MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: { responseMimeType: 'application/json', temperature: 0.2 },
+      }, 0, 3000);
+      const parsed = parseJson<{ advisory?: string; officialSummary?: string }>(res.text ?? '', {});
+      if (parsed.advisory?.trim()) advisory = parsed.advisory.trim();
+      if (parsed.officialSummary?.trim()) officialSummary = parsed.officialSummary.trim();
+    } catch {
+      // Fallback already prepared
     }
   }
 
-  // 2) Ensure complete result even if the model stopped early or has no key.
-  if (!finalized) {
-    yield {
-      type: 'step',
-      step: step('Layers', 'Checking for duplicate reports nearby', describeCall('find_duplicate_reports', {}, vision), 'running', { tool: 'find_duplicate_reports' }),
-    };
-    const dup = await detectDuplicates(vision.category, input.geo, `${vision.title}. ${vision.description}`);
-    duplicateCount = dup.count;
-    nearestDup = dup.nearest;
-    semanticTop = dup.topSemantic;
-    yield {
-      type: 'step',
-      step: step('Layers', 'Duplicate check complete', dup.count ? `Found ${dup.count} related report(s)${dup.topSemantic ? ` (semantic match ${Math.round(dup.topSemantic.sim * 100)}%)` : ''} — linking for stronger signal.` : 'No duplicates — this is a fresh report.', 'done', { tool: 'find_duplicate_reports', data: { count: dup.count } }),
-    };
-
-    department = DEPARTMENTS[vision.category];
-    yield {
-      type: 'step',
-      step: step('Building2', 'Routed to department', `${department.name} · SLA ${slaText(department.slaHours)}`, 'done', { tool: 'lookup_department' }),
-    };
-
-    priority = computePriority({
-      severity: vision.severity,
-      duplicateCount,
-      slaHours: department.slaHours,
-      hasSafetyRisk: hasRisk(vision.safetyRisk),
-    });
-    yield {
-      type: 'step',
-      step: step('Gauge', 'Priority scored', `Priority ${priority}/100`, 'done', { tool: 'assess_priority', data: { priority } }),
-    };
-
-    advisory = `Your report has been routed to ${department.name} with priority ${priority}/100. Target resolution within ${slaText(department.slaHours)}. You'll be notified as it progresses; escalation contact is ${department.escalation}.`;
-    officialSummary = vision.description;
-    recommendedAction =
-      vision.severity === 'Critical' || vision.severity === 'High'
-        ? 'Dispatch a field crew on priority and barricade the area if unsafe.'
-        : 'Schedule inspection and remediation within the SLA window.';
-  }
+  yield {
+    type: 'step',
+    step: step(
+      'FileCheck2',
+      'Work order filed',
+      `Assigned to ${department.name} · Priority ${priority}/100 · Action: ${recommendedAction}`,
+      'done',
+      { tool: 'file_work_order', data: { status: 'filed', priority } },
+    ),
+  };
 
   if (!advisory) {
     advisory = `Routed to ${department.name}. Target resolution within ${slaText(

@@ -2,9 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 
 // Single Gemini client. The key is read server-side only and never reaches the
 // browser. Google AI Studio injects GEMINI_API_KEY at deploy time.
-// flash-lite has the most generous free-tier limits and supports vision, tools
-// and structured output — ideal for the multi-call agent on a free key.
-export const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+// gemini-2.0-flash is the fastest multimodal model with generous limits.
+export const MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 
 let client: GoogleGenAI | null = null;
 
@@ -30,7 +29,6 @@ const isRateLimit = (err: unknown): boolean => {
     m.includes('429') ||
     m.includes('resource_exhausted') ||
     m.includes('quota') ||
-    // transient upstream overload — retry these too
     m.includes('503') ||
     m.includes('unavailable') ||
     m.includes('overloaded') ||
@@ -38,17 +36,32 @@ const isRateLimit = (err: unknown): boolean => {
   );
 };
 
-/** generateContent with automatic backoff on free-tier 429s and transient 503s. */
-export async function genContent(params: GenParams, retries = 2): Promise<GenResult> {
+/** Run any promise with a strict maximum timeout in ms */
+export async function withTimeout<T>(promise: Promise<T>, ms = 7000): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timer);
+      return res;
+    }),
+    timeoutPromise,
+  ]);
+}
+
+/** generateContent with timeout protection and fast single retry to prevent UI hanging. */
+export async function genContent(params: GenParams, retries = 1, timeoutMs = 7000): Promise<GenResult> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await gemini().models.generateContent(params);
+      const call = gemini().models.generateContent(params);
+      return await withTimeout(call, timeoutMs);
     } catch (err) {
       if (!isRateLimit(err) || attempt >= retries) throw err;
-      const msg = String((err as { message?: string })?.message ?? err);
-      const m = msg.match(/retry in ([\d.]+)s/i);
-      const waitMs = Math.min(15000, m ? Math.ceil(parseFloat(m[1]) * 1000) + 600 : 8000);
-      await new Promise((r) => setTimeout(r, waitMs));
+      await new Promise((r) => setTimeout(r, 1200));
     }
   }
 }
