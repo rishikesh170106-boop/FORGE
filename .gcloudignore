@@ -1,0 +1,14 @@
+# Uploaded to Cloud Build for `gcloud run deploy --source .`
+# Exclude build artifacts & secrets, but KEEP .env.production (public client keys
+# needed to inline NEXT_PUBLIC_* at build time).
+node_modules
+.next
+.git
+npm-debug.log*
+yarn-error.log*
+
+# secrets — never upload
+.env
+.env.local
+.env*.local
+# (.env.production is intentionally NOT ignored)

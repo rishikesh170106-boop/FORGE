@@ -1,0 +1,263 @@
+// Prisma schema for Community Hero — Local SQLite Database
+// Location: prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String                  @id @default(cuid())
+  email              String                  @unique
+  password           String                  // bcrypt hashed
+  name               String
+  role               String                  @default("CITIZEN") // CITIZEN, DEPARTMENT_OFFICER, FIELD_WORKER, MUNICIPAL_ADMIN
+  avatar             String                  @default("🧑")
+  departmentId       String?
+  wardId             String?
+  badgeNumber        String?
+  designation        String?
+  points             Int                     @default(0)
+  reportsCount       Int                     @default(0)
+  verificationsCount Int                     @default(0)
+  resolvedImpact     Int                     @default(0)
+  isDemo             Boolean                 @default(false)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  department         Department?             @relation(fields: [departmentId], references: [id])
+  ward               Ward?                   @relation(fields: [wardId], references: [id])
+  issues             Issue[]                 @relation("ReportedIssues")
+  workerOrders       WorkOrder[]             @relation("WorkerWorkOrders")
+  officerOrders      WorkOrder[]             @relation("OfficerWorkOrders")
+  verifications      CommunityVerification[]
+  notifications      Notification[]
+
+  @@index([role])
+  @@index([departmentId])
+  @@index([wardId])
+}
+
+model Department {
+  id           String      @id // e.g. "dept-road", "dept-water"
+  name         String      @unique
+  headName     String?
+  contactEmail String?
+  slaHours     Int         @default(48)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  users        User[]
+  issues       Issue[]
+  workOrders   WorkOrder[]
+}
+
+model Ward {
+  id             String    @id // e.g. "ward-101", "ward-102"
+  name           String    @unique
+  zone           String
+  lat            Float?
+  lng            Float?
+  supervisorName String?
+  contactNumber  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  users          User[]
+  issues         Issue[]
+}
+
+model Issue {
+  id                   String                  @id @default(cuid())
+  ref                  String                  @unique // e.g. "CH-1001"
+  title                String
+  description          String                  @default("")
+  category             String                  // Pothole, Streetlight, etc.
+  severity             String                  @default("Medium") // Low, Medium, High, Critical
+  status               String                  @default("Reported") // Reported, Acknowledged, In Progress, Resolved
+  detailedStatus       String                  @default("SUBMITTED") // SUBMITTED, AI_ANALYZED, ROUTED, ACCEPTED, ASSIGNED, IN_PROGRESS, RESOLUTION_SUBMITTED, VERIFIED, CLOSED, REJECTED, REOPENED, ESCALATED
+  priority             Int                     @default(0)
+  confidence           Float                   @default(0.8)
+  safetyRisk           String                  @default("")
+  tags                 String                  @default("[]") // JSON string of tags
+  location             String                  @default("")
+  lat                  Float?
+  lng                  Float?
+  departmentId         String?
+  departmentName       String                  @default("")
+  wardId               String?
+  wardName             String                  @default("")
+  slaHours             Int                     @default(48)
+  resolutionDeadline   DateTime?
+  workOrderId          String?
+  assignedOfficerId    String?
+  assignedOfficerName  String?
+  assignedWorkerId     String?
+  assignedWorkerName   String?
+  advisory             String                  @default("")
+  imageUrl             String?                 // Local path: /uploads/complaints/...
+  afterImageUrl        String?                 // Local path: /uploads/resolutions/...
+  resolutionVerified   Boolean?
+  resolutionConfidence Float?
+  resolutionNote       String?
+  citizenConfirmed     Boolean?
+  citizenFeedback      String?
+  escalated            Boolean                 @default(false)
+  disputes             Int                     @default(0)
+  reporterId           String?
+  reporterName         String                  @default("Citizen")
+  verificationsCount   Int                     @default(0)
+  duplicateOf          String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  reporter             User?                   @relation("ReportedIssues", fields: [reporterId], references: [id])
+  department           Department?             @relation(fields: [departmentId], references: [id])
+  ward                 Ward?                   @relation(fields: [wardId], references: [id])
+  workOrders           WorkOrder[]
+  timeline             Timeline[]
+  evidence             ResolutionEvidence[]
+  communityVerifications CommunityVerification[]
+  auditLogs            AuditLog[]
+
+  @@index([status])
+  @@index([category])
+  @@index([departmentId])
+  @@index([wardId])
+  @@index([reporterId])
+  @@index([createdAt])
+}
+
+model WorkOrder {
+  id              String               @id // e.g. "WO-5201"
+  complaintId     String
+  departmentId    String?
+  departmentName  String?
+  officerId       String?
+  officerName     String?
+  workerId        String?
+  workerName      String               @default("Field Specialist")
+  status          String               @default("Assigned") // Assigned, In Progress, Completed, Verified, Closed
+  instructions    String?
+  deadline        DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completionNotes String?
+  beforePhotoUrl  String?
+  afterPhotoUrl   String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  issue           Issue                @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  department      Department?          @relation(fields: [departmentId], references: [id])
+  officer         User?                @relation("OfficerWorkOrders", fields: [officerId], references: [id])
+  worker          User?                @relation("WorkerWorkOrders", fields: [workerId], references: [id])
+  assignments     WorkAssignment[]
+  evidence        ResolutionEvidence[]
+
+  @@index([status])
+  @@index([complaintId])
+  @@index([workerId])
+}
+
+model WorkAssignment {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workerId    String
+  workerName  String
+  assignedBy  String
+  assignedAt  DateTime  @default(now())
+  deadline    DateTime?
+  status      String    @default("Assigned")
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([workerId])
+}
+
+model Timeline {
+  id        String   @id @default(cuid())
+  issueId   String
+  status    String
+  note      String   @default("")
+  actor     String   @default("")
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?
+  role        String?
+  title       String
+  message     String
+  type        String
+  complaintId String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([role])
+  @@index([isRead])
+}
+
+model ResolutionEvidence {
+  id               String     @id @default(cuid())
+  complaintId      String
+  workOrderId      String?
+  originalPhotoUrl String?
+  afterPhotoUrl    String?
+  issueIdentified  String?
+  isResolved       Boolean    @default(false)
+  remainingDamage  String?
+  confidence       Float      @default(0.9)
+  explanation      String?
+  recommendation   String     @default("APPROVE") // APPROVE, REJECT, MANUAL_REVIEW
+  verifiedBy       String?
+  createdAt        DateTime   @default(now())
+
+  issue            Issue      @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  workOrder        WorkOrder? @relation(fields: [workOrderId], references: [id])
+
+  @@index([complaintId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  complaintId String
+  action      String
+  actorRole   String
+  actorName   String
+  actorId     String?
+  details     String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  issue       Issue?   @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@index([complaintId])
+}
+
+model CommunityVerification {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+  @@index([issueId])
+  @@index([userId])
+}
+
