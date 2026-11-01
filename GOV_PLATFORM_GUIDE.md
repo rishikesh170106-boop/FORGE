@@ -110,7 +110,7 @@ Command center for city commissioners:
 
 ## 7. Database Migration
 
-The full PostgreSQL migration is available in [`supabase/migrations/0007_civic_platform.sql`](file:///c:/Users/shaik/Downloads/vibe2ship-main/vibe2ship-main/supabase/migrations/0007_civic_platform.sql):
+The full database schema is managed via Prisma in `prisma/schema.prisma`.
 - Tables added: `wards`, `departments`, `work_orders`, `ai_verifications`, `notifications`, `audit_logs`.
 - Tables expanded: `profiles` (roles: `CITIZEN`, `DEPARTMENT_OFFICER`, `FIELD_WORKER`, `MUNICIPAL_ADMIN`), `issues` (ward, officer, worker, detailed status, deadlines).
 - Enabled Supabase Realtime publications.

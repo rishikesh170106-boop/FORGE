@@ -3,7 +3,7 @@ import L from 'leaflet';
 /**
  * Custom vector HTML markers for Leaflet.
  * Completely eliminates broken asset issues (marker-icon.png 404s) and allows
- * dynamic coloring matching Vibe2Ship's civic severity palette.
+ * dynamic coloring matching FORGE's civic severity palette.
  */
 
 export function createIssuePin(color: string): L.DivIcon {
