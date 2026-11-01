@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../department-performance/page';
+import { redirect } from 'next/navigation';
+
+export default function ScorecardsRedirect() {
+  redirect('/department-performance');
+}
+

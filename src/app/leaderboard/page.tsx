@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../community-rankings/page';
+import { redirect } from 'next/navigation';
+
+export default function LeaderboardRedirect() {
+  redirect('/community-rankings');
+}
+

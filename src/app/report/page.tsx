@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../report-issue/page';
+import { redirect } from 'next/navigation';
+
+export default function ReportRedirect() {
+  redirect('/report-issue');
+}
+

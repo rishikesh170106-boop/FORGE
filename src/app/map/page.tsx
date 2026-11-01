@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../civic-map/page';
+import { redirect } from 'next/navigation';
+
+export default function MapRedirect() {
+  redirect('/civic-map');
+}
+

@@ -1,7 +1,7 @@
 import * as repo from './sqlite-repo';
 import type { NewIssue } from './sqlite-repo';
 export type { NewIssue };
-import type { Stats, Hotspot } from './analytics';
+import { computeStats, type Stats, type Hotspot } from './analytics';
 import {
   addIssue,
   advanceStatus as memAdvance,
@@ -44,7 +44,7 @@ import type {
 import { routeComplaint } from './routing';
 
 const useDb = () => true;
-const allowMemoryFallback = () => process.env.ENABLE_MEMORY_FALLBACK === 'true';
+const allowMemoryFallback = () => process.env.ENABLE_MEMORY_FALLBACK !== 'false';
 
 export async function listIssues(filter: IssueFilter = {}): Promise<Issue[]> {
   if (useDb()) {
@@ -439,7 +439,16 @@ export async function markNotificationRead(id: string): Promise<void> {
 }
 
 export async function getStats(): Promise<Stats> {
-  return repo.getStats();
+  if (useDb()) {
+    try {
+      return await repo.getStats();
+    } catch (err) {
+      console.warn('[DATABASE WARN] getStats falling back to memory store:', err);
+      if (allowMemoryFallback()) return computeStats(memList());
+      throw err;
+    }
+  }
+  return computeStats(memList());
 }
 
 export async function getHotspots(): Promise<Hotspot[]> {

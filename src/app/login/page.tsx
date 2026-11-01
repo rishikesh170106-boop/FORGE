@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../authentication/page';
+import { redirect } from 'next/navigation';
+
+export default function LoginRedirect() {
+  redirect('/authentication');
+}
+

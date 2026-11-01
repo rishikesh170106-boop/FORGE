@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../field-operations/page';
+import { redirect } from 'next/navigation';
+
+export default function WorkerRedirect() {
+  redirect('/field-operations');
+}
+

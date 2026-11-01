@@ -1,2 +1,6 @@
-export const dynamic = 'force-dynamic';
-export { default } from '../citizen-profile/page';
+import { redirect } from 'next/navigation';
+
+export default function ProfileRedirect() {
+  redirect('/citizen-profile');
+}
+

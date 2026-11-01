@@ -1332,53 +1332,68 @@ export async function getHotspots(): Promise<Hotspot[]> {
 }
 
 export async function getLeaderboard(): Promise<Citizen[]> {
-  const users = await prisma.user.findMany({
-    orderBy: { points: 'desc' },
-    take: 20,
-  });
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { points: 'desc' },
+      take: 20,
+    });
 
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    avatar: u.avatar,
-    points: u.points,
-    reports: u.reportsCount,
-    verifications: u.verificationsCount,
-    resolvedImpact: u.resolvedImpact,
-  }));
+    return users.map((u) => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      points: u.points,
+      reports: u.reportsCount,
+      verifications: u.verificationsCount,
+      resolvedImpact: u.resolvedImpact,
+    }));
+  } catch (err) {
+    console.warn('getLeaderboard query fallback:', err);
+    return [];
+  }
 }
 
 export async function getMyReports(userIdOrName: string): Promise<Issue[]> {
-  const issues = await prisma.issue.findMany({
-    where: {
-      OR: [
-        { reporterId: userIdOrName },
-        { reporterName: { contains: userIdOrName } },
-        { reporterName: 'shaiksameerbasha072' },
-      ],
-    },
-    include: {
-      timeline: { orderBy: { createdAt: 'asc' } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  try {
+    const issues = await prisma.issue.findMany({
+      where: {
+        OR: [
+          { reporterId: userIdOrName },
+          { reporterName: { contains: userIdOrName } },
+          { reporterName: 'shaiksameerbasha072' },
+        ],
+      },
+      include: {
+        timeline: { orderBy: { createdAt: 'asc' } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return issues.map(toDomainIssue);
+    return issues.map(toDomainIssue);
+  } catch (err) {
+    console.warn('getMyReports query fallback:', err);
+    return [];
+  }
 }
 
 export async function getMyVerifications(userId: string): Promise<Issue[]> {
-  const verifs = await prisma.communityVerification.findMany({
-    where: { userId },
-    include: {
-      issue: {
-        include: {
-          timeline: { orderBy: { createdAt: 'asc' } },
+  try {
+    const verifs = await prisma.communityVerification.findMany({
+      where: { userId },
+      include: {
+        issue: {
+          include: {
+            timeline: { orderBy: { createdAt: 'asc' } },
+          },
         },
       },
-    },
-  });
+    });
 
-  return verifs.map((v) => toDomainIssue(v.issue));
+    return verifs.map((v) => toDomainIssue(v.issue));
+  } catch (err) {
+    console.warn('getMyVerifications query fallback:', err);
+    return [];
+  }
 }
 
 export async function getMyRank(userId: string): Promise<number> {
@@ -1388,9 +1403,19 @@ export async function getMyRank(userId: string): Promise<number> {
 }
 
 export async function getWards() {
-  return prisma.ward.findMany({ orderBy: { name: 'asc' } });
+  try {
+    return await prisma.ward.findMany({ orderBy: { name: 'asc' } });
+  } catch (err) {
+    console.warn('getWards fallback:', err);
+    return [];
+  }
 }
 
 export async function getDepartments() {
-  return prisma.department.findMany({ orderBy: { name: 'asc' } });
+  try {
+    return await prisma.department.findMany({ orderBy: { name: 'asc' } });
+  } catch (err) {
+    console.warn('getDepartments fallback:', err);
+    return [];
+  }
 }
