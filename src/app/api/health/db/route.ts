@@ -37,16 +37,20 @@ export async function GET() {
       prisma.communityVerification.count().catch(() => 0),
     ]);
 
-    // 3. Verify Local Storage Folders
+    // 3. Verify Local Storage Folders safely
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
     const complaintsDir = path.join(uploadsDir, 'complaints');
     const resolutionsDir = path.join(uploadsDir, 'resolutions');
     const profilesDir = path.join(uploadsDir, 'profiles');
 
-    for (const dir of [complaintsDir, resolutionsDir, profilesDir]) {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+    try {
+      for (const dir of [complaintsDir, resolutionsDir, profilesDir]) {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
       }
+    } catch {
+      // Read-only filesystem in serverless environments (Vercel)
     }
 
     return NextResponse.json({

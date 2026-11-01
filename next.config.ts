@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // Configured for optimal Vercel serverless deployment
 
   async redirects() {
     return [
