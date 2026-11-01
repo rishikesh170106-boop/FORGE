@@ -2,6 +2,9 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   // Configured for optimal Vercel serverless deployment
+  outputFileTracingIncludes: {
+    '/**': ['./prisma/**'],
+  },
 
   async redirects() {
     return [

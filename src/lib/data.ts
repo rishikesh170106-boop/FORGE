@@ -123,7 +123,11 @@ export async function createIssue(input: NewIssue): Promise<Issue> {
 
   if (useDb()) {
     try {
-      return await repo.createIssue(enrichedInput);
+      const created = await repo.createIssue(enrichedInput);
+      try {
+        addIssue(created);
+      } catch {}
+      return created;
     } catch (err) {
       console.error('[DATABASE ERROR] Supabase createIssue failed:', err);
       if (allowMemoryFallback()) {

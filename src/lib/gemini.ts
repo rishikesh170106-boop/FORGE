@@ -4,7 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 // browser. Google AI Studio injects GEMINI_API_KEY at deploy time.
 // flash-lite has the most generous free-tier limits and supports vision, tools
 // and structured output — ideal for the multi-call agent on a free key.
-export const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+export const MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
 let client: GoogleGenAI | null = null;
 

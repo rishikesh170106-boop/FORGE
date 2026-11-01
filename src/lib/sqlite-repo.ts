@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { haversine } from './geo';
 import { computeStats, computeHotspots, type Stats, type Hotspot } from './analytics';
+import { reportPoints } from './departments';
 import type {
   Citizen,
   GeoPoint,
@@ -289,13 +290,14 @@ export async function createIssue(input: NewIssue): Promise<Issue> {
     },
   });
 
-  // Increment user's reports count
+  // Increment user's reports count & award points based on severity
+  const earnedPts = reportPoints(input.severity) || 20;
   if (reporterUserId) {
     await prisma.user.update({
       where: { id: reporterUserId },
       data: {
         reportsCount: { increment: 1 },
-        points: { increment: 15 },
+        points: { increment: earnedPts },
       },
     }).catch(() => {});
   }

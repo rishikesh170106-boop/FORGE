@@ -46,3 +46,4 @@ scripts/
 *.log
 *.db
 *.db-journal
+.vercel

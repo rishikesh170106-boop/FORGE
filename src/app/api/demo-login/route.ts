@@ -82,3 +82,11 @@ export async function POST(req: Request) {
     otp: '123456',
   });
 }
+
+export async function DELETE() {
+  const cookieStore = await cookies();
+  cookieStore.delete('ch_demo_role');
+  cookieStore.delete('ch_user_id');
+  cookieStore.delete('ch_session');
+  return Response.json({ success: true });
+}

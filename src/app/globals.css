@@ -498,7 +498,8 @@ textarea.input-field {
   align-items: center;
   gap: 0.15rem;
   max-width: 100%;
-  overflow-x: auto;
+  overflow: visible;
+  position: relative;
   scrollbar-width: none;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(26px) saturate(190%);

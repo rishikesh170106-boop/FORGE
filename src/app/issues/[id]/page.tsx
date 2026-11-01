@@ -23,6 +23,7 @@ import OfficialLetter from '@/components/OfficialLetter';
 import CouncilPanel from '@/components/CouncilPanel';
 import ShareButton from '@/components/ShareButton';
 import ComplaintLifecycleStepper from '@/components/ComplaintLifecycleStepper';
+import IssueDetailFallback from '@/components/IssueDetailFallback';
 import {
   CategoryIcon,
   SeverityBadge,
@@ -64,7 +65,9 @@ function isSlaBreached(createdAt: string, slaHours: number, status: string): boo
 export default async function IssueDetail(ctx: PageProps<'/issues/[id]'>) {
   const { id } = await ctx.params;
   const issue = await getIssue(id);
-  if (!issue) notFound();
+  if (!issue) {
+    return <IssueDetailFallback id={id} />;
+  }
   const profile = await getProfile();
   const isAuthority = profile?.role === 'authority';
 

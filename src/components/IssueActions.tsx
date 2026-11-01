@@ -24,6 +24,9 @@ export default function IssueActions({ id }: { id: string }) {
       return;
     }
     setDone(kind);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('ch-auth-change'));
+    }
     toast(
       kind === 'verify'
         ? 'Verified — thanks for confirming! +5 points'

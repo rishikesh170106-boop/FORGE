@@ -163,6 +163,20 @@ export default function ReportIssuePage() {
       setResult(ev.issue);
       if (ev.warning) setWarning(ev.warning);
       toast(`Filed ${ev.issue.workOrderId} · routed to ${ev.issue.department}`, 'success');
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(`ch_issue_${ev.issue.id}`, JSON.stringify(ev.issue));
+          if (ev.issue.ref) localStorage.setItem(`ch_issue_${ev.issue.ref}`, JSON.stringify(ev.issue));
+          if (ev.issue.workOrderId) localStorage.setItem(`ch_issue_${ev.issue.workOrderId}`, JSON.stringify(ev.issue));
+          const raw = localStorage.getItem('ch_local_issues');
+          const list = raw ? JSON.parse(raw) : [];
+          list.unshift(ev.issue);
+          localStorage.setItem('ch_local_issues', JSON.stringify(list.slice(0, 50)));
+          window.dispatchEvent(new Event('ch-auth-change'));
+        }
+      } catch (e) {
+        console.warn('Local caching error:', e);
+      }
     } else if (ev.type === 'rejected') {
       setWarning(ev.message ?? "That photo doesn't look like a community issue.");
       setRejected(true);

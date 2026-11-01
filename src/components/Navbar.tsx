@@ -93,10 +93,17 @@ export default function Navbar() {
         <NotificationBell />
 
         {profile ? (
-          <Link href="/citizen-profile" className={`navpill-link ${isActive('/citizen-profile') || isActive('/profile') ? 'active' : ''}`} title={profile.name} aria-label="Profile">
+          <Link href="/citizen-profile" className={`navpill-link ${isActive('/citizen-profile') || isActive('/profile') ? 'active' : ''}`} title={`${profile.name} (${profile.points ?? 0} pts)`} aria-label="Profile">
             {(isActive('/citizen-profile') || isActive('/profile')) && <ActiveBg />}
             <span className="ico" style={{ fontSize: 17, lineHeight: 1 }}>{profile.avatar}</span>
-            <span className="label">{profile.name.split(' ')[0]}</span>
+            <span className="label flex items-center gap-1">
+              <span>{profile.name.split(' ')[0]}</span>
+              {typeof profile.points === 'number' && (
+                <span className="badge" style={{ fontSize: '0.68rem', padding: '0.05rem 0.35rem', background: 'rgba(234, 179, 8, 0.18)', color: '#b45309', fontWeight: 700, borderRadius: 'var(--radius-full)' }}>
+                  ⭐ {profile.points}
+                </span>
+              )}
+            </span>
           </Link>
         ) : (
           <Link href="/authentication" className={`navpill-link ${isActive('/authentication') || isActive('/login') ? 'active' : ''}`} aria-label="Sign in">

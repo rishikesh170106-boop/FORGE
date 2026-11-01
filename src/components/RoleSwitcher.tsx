@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shield, Building2, HardHat, Landmark, User, ChevronDown, Check, LogOut } from 'lucide-react';
 
@@ -17,17 +17,34 @@ export default function RoleSwitcher() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    fetch('/api/auth/session')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.profile) {
-          setProfile(data.profile);
-        }
-      })
-      .catch(() => {});
+    function load() {
+      fetch('/api/auth/session')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.profile) {
+            setProfile(data.profile);
+          }
+        })
+        .catch(() => {});
+    }
+    load();
+
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('ch-auth-change', load);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('ch-auth-change', load);
+    };
   }, []);
 
   async function switchRole(targetRole: string, targetPath: string) {
@@ -42,6 +59,7 @@ export default function RoleSwitcher() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: targetRole }),
       });
+      window.dispatchEvent(new Event('ch-auth-change'));
       window.location.assign(targetPath);
     } catch {
       setSwitching(false);
@@ -59,7 +77,7 @@ export default function RoleSwitcher() {
   const CurrentIcon = current.icon;
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -71,9 +89,10 @@ export default function RoleSwitcher() {
           padding: '0.35rem 0.65rem',
           borderRadius: 'var(--radius-full)',
           fontSize: '0.78rem',
-          background: 'rgba(255, 255, 255, 0.85)',
+          background: 'rgba(255, 255, 255, 0.95)',
           border: '1px solid var(--border)',
           fontWeight: 600,
+          cursor: 'pointer',
         }}
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', color: current.color }}>
@@ -98,15 +117,15 @@ export default function RoleSwitcher() {
 
       {open && (
         <div
-          className="glass-card"
+          className="glass-card animate-rise"
           style={{
             position: 'absolute',
-            top: 'calc(100% + 6px)',
+            top: 'calc(100% + 8px)',
             right: 0,
             width: 250,
             padding: '0.5rem',
-            zIndex: 1000,
-            boxShadow: 'var(--shadow-lg)',
+            zIndex: 9999,
+            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.25)',
             borderRadius: 'var(--radius-md)',
             background: 'rgba(255, 255, 255, 0.98)',
             border: '1px solid var(--border-strong)',
