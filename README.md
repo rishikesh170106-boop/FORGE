@@ -2,7 +2,7 @@
 
 > **Turn any citizen photo into verified municipal action in seconds** — powered by an autonomous **Google Gemini 3.8 Flash** multi-tool triage agent, deterministic ward routing, TSP dispatch optimization, and dual-evidence resolution verification.
 
-[![Live Deployment](https://img.shields.io/badge/Vercel-Live%20Demo-black?logo=vercel)](https://vibe2ship-main.vercel.app)
+[![Live Deployment](https://img.shields.io/badge/Vercel-Live%20Demo-black?logo=vercel)](https://civicsense-main.vercel.app)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-rishikesh170106--boop%2FFORGE-blue?logo=github)](https://github.com/rishikesh170106-boop/FORGE)
 [![Gemini 3.8 Flash](https://img.shields.io/badge/AI-Gemini%203.8%20Flash-4285F4?logo=google)](https://ai.google.dev/)
 [![Next.js 16](https://img.shields.io/badge/Framework-Next.js%2016-black?logo=next.js)](https://nextjs.org/)
@@ -12,9 +12,7 @@
 
 ## 🌐 Live Links & Presentation Deck
 
-- **Live Production URL:** [https://vibe2ship-main.vercel.app](https://vibe2ship-main.vercel.app)
-- **PowerPoint Presentation (`.pptx`):** [`FORGE_Presentation.pptx`](./FORGE_Presentation.pptx)
-- **Interactive Browser Slide Deck:** [`FORGE_Presentation.html`](./FORGE_Presentation.html)
+- **Live Production URL:** [https://civicsense-main.vercel.app](https://civicsense-main.vercel.app)
 - **Slide Deck Summary:** [`FORGE_PRESENTATION.md`](./FORGE_PRESENTATION.md)
 
 ---
