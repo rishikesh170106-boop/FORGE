@@ -47,3 +47,5 @@ scripts/
 *.db
 *.db-journal
 .vercel
+
+~$*
